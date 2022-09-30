@@ -3,7 +3,7 @@
     <groupId>com.theoryinpractise</groupId>
     <artifactId>clojure.osgi</artifactId>
     <packaging>bundle</packaging>
-    <version>1.9.0-3-SNAPSHOT</version>
+    <version>1.9.1-SNAPSHOT</version>
     <name>ClojureOSGI</name>
     <description>Clojure - OSGi-ified with support library.</description>
     <url>https://github.com/talios/clojure.osgi</url>
@@ -16,9 +16,9 @@
   </scm>
 
     <properties>
-        <clojure.version>1.9.0</clojure.version>
-        <core.specs.alpha.version>0.1.24</core.specs.alpha.version>
-        <spec.alpha.version>0.1.143</spec.alpha.version>
+        <clojure.version>1.11.1</clojure.version>
+        <core.specs.alpha.version>0.2.62</core.specs.alpha.version>
+        <spec.alpha.version>0.3.218</spec.alpha.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <licenses>
@@ -82,15 +82,16 @@
     <dependencies>
         <dependency>
             <groupId>org.osgi</groupId>
-            <artifactId>org.osgi.core</artifactId>
-            <version>6.0.0</version>
+            <artifactId>osgi.core</artifactId>
+            <version>8.0.0</version>
             <type>jar</type>
         </dependency>
 
         <dependency>
             <groupId>org.osgi</groupId>
-            <artifactId>org.osgi.compendium</artifactId>
-            <version>5.0.0</version>
+            <artifactId>osgi.cmpn</artifactId>
+            <version>7.0.0</version>
+            <scope>provided</scope>
             <type>jar</type>
         </dependency>
 
@@ -109,6 +110,28 @@
             <groupId>org.clojure</groupId>
             <artifactId>spec.alpha</artifactId>
             <version>[${spec.alpha.version}]</version>
+        </dependency>
+        <dependency>
+          <groupId>org.clojure</groupId>
+          <artifactId>tools.logging</artifactId>
+          <version>1.2.4</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.clojure</groupId>
+                    <artifactId>core</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+        	<groupId>org.slf4j</groupId>
+        	<artifactId>slf4j-api</artifactId>
+        	<version>1.7.36</version>
+          	<scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.felix</groupId>
+            <artifactId>org.apache.felix.framework</artifactId>
+            <version>7.0.5</version>
         </dependency>
     </dependencies>
 
@@ -135,7 +158,8 @@
                         <Embed-Dependency>
                             clojure;inline=true,
                             spec.alpha;inline=true,
-                            core.specs.alpha;inline=true
+                            core.specs.alpha;inline=true,
+                            tools.logging;inline=true
                         </Embed-Dependency>
                         <Import-Package>                            
                             !sun.misc,
@@ -153,6 +177,7 @@
                             clojure.*; version="${clojure.version}"
                         </_exportcontents>
                         <DynamicImport-Package>*</DynamicImport-Package>
+                        <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
                     </instructions>
                 </configuration>
             </plugin>
@@ -195,20 +220,22 @@
                 </configuration>
             </plugin>
         </plugins>
+        
     </build>
 
     <repositories>
         <repository>
+            <id>central</id>
+            <url>https://repo1.maven.org/maven2</url>
+        </repository>
+        <repository>
             <id>clojars</id>
-            <url>http://clojars.org/repo/</url>
+            <url>https://clojars.org/repo/</url>
         </repository>
         <repository>
             <id>clojure</id>
-            <url>http://build.clojure.org/releases</url>
+            <url>https://build.clojure.org/releases</url>
         </repository>
-        <repository>
-            <id>central</id>
-            <url>http://repo1.maven.org/maven2</url>
-        </repository>
+
     </repositories>
 </project>

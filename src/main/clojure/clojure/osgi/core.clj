@@ -1,29 +1,42 @@
 (ns clojure.osgi.core
+  (:require [clojure.tools.logging :as log])
   (:import [org.osgi.framework Bundle])
   (:import [clojure.osgi BundleClassLoader IClojureOSGi RunnableWithException])
   (:import [clojure.lang Namespace]))
 
-(def ^{:private true} osgi-debug false)
+(def ^{:private true} osgi-debug true)
 
 (def ^:dynamic *bundle* nil)
 (def ^:dynamic *clojure-osgi-bundle*)
 
-(defn bundle-for-ns [ns]
-  (let [ns-meta (meta ns)]
-    (and ns-meta (::bundle ns-meta))))
 
-(defn bundle-is-usable [^Bundle bundle]
-  (not= 0
-        (bit-and (bit-or Bundle/RESOLVED Bundle/STARTING Bundle/STOPPING Bundle/ACTIVE)
-                 (.getState bundle))))
+(let [bundle *bundle*]
+  (defn bundle-name []
+    (when bundle (.getSymbolicName bundle))
+    )
+
+  (defn get-bundle [bid]
+    (when bundle (.. bundle (getBundleContext) (getBundle bid)))
+    )
+  )
+
+(defn bundle-id-for-ns [ns]
+  (let [ns-meta (meta ns)]
+    (and ns-meta (::bundle-id ns-meta))))
+
+(defn bundle-is-usable [^Long bundle-id]
+  (let [bundle (get-bundle bundle-id)]
+    (not= 0
+          (bit-and (bit-or Bundle/RESOLVED Bundle/STARTING Bundle/STOPPING Bundle/ACTIVE)
+                   (.getState bundle)))))
 
 (defn namespaces-for-bundle [^Bundle bundle]
   (let [bundle-id (.getBundleId bundle)]
     (filter
       (fn [^Namespace ns]
-        (let [ns-bundle (bundle-for-ns ns)]
-          (and ns-bundle
-                   (= (.getBundleId ns-bundle) bundle-id))))
+        (let [ns-bundle-id (bundle-id-for-ns ns)]
+          (and ns-bundle-id
+                   (= ns-bundle-id bundle-id))))
       (all-ns))))
 
 (defn- really-unload-namespace [^Namespace ns]
@@ -35,9 +48,9 @@
 
 (defn namespaces-for-unused-bundles []
   (for [^Namespace ns (all-ns)
-        :let [bundle (::bundle (meta ns))]
-        :when (and bundle
-                   (not (bundle-is-usable bundle)))]
+        :let [bundle-id (::bundle-id (meta ns))]
+        :when (and bundle-id
+                   (not (bundle-is-usable bundle-id)))]
     ns))
 
 (defn unload-namespaces-for-unused-bundles []
@@ -105,15 +118,7 @@
 )
 
 
-(let [bundle *bundle*]
-	(defn bundle-name []
-	  (when bundle (.getSymbolicName bundle))
-	)
 
-	(defn get-bundle [bid]
-          (when bundle (.. bundle (getBundleContext) (getBundle bid)))
-	)
-)
 
 (defn- libspecs [args]
   (flatten 
@@ -152,10 +157,15 @@
   "Extracts bundle ID from resource URLs in when the bundle ID is at
   the beginning of the host part of a resource URL.
   This is known to be true for both Eclipse/Equinox and current Apache Felix."
-  (let [host (.getHost url) dot (.indexOf host  (int \.))]
+  (log/warn url)
+  (let [host (.getHost url) 
+        dot (.indexOf host  (int \.)) 
+        _underscore (.indexOf host (int \_))
+        underscore (if (>= _underscore 0) (inc _underscore) 0)]
+    (log/warn "dot" dot "underscore" underscore)
     (Long/parseLong
       (if (and (>= dot 0) (< dot (- (count host) 1)))
-        (.substring host 0 dot) host))))
+        (.substring host underscore dot) host))))
 
 (defn- host-part-header-bundle-for-resource [bundle resource]
   "Finds the bundle to use given a resource URL, for use with OSGi
@@ -269,7 +279,7 @@
         (do
           (when osgi-debug
             (println (str "Associating namespace " n " with bundle " *bundle*)))
-          (original (vary-meta n assoc ::bundle *bundle*)))
+          (original (vary-meta n assoc ::bundle-id (.getBundleId *bundle*))))
         (do
           (when osgi-debug
             (println (str "Namespace " n " being loaded, but *bundle* is not set")))

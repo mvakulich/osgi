@@ -9,6 +9,8 @@ import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleEvent;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.log.LogService;
+import org.osgi.service.log.Logger;
+import org.osgi.service.log.LoggerFactory;
 import org.osgi.util.tracker.BundleTracker;
 import org.osgi.util.tracker.ServiceTracker;
 
@@ -20,8 +22,7 @@ public class ExtenderTracker extends BundleTracker {
 	private Set<Long> requireProcessed = new HashSet<Long>();
 	private Set<Long> active = new HashSet<Long>();
 	private ServiceTracker logTracker;
-	private LogService log = new StreamLog(System.out);
-
+	Logger log = null;
 	private enum CallbackType {
 		START, STOP
 	}
@@ -29,23 +30,12 @@ public class ExtenderTracker extends BundleTracker {
 	public ExtenderTracker(BundleContext context) {
 		super(context, Bundle.STARTING | Bundle.ACTIVE | Bundle.STOPPING, null);
 
-		logTracker = new ServiceTracker(context,
-				org.osgi.service.log.LogService.class.getName(), null) {
-			@Override
-			public Object addingService(ServiceReference reference) {
-				return log = (LogService) super.addingService(reference);
-			}
+		ServiceReference ref = context.getServiceReference(LoggerFactory.class.getName());
+		if (ref != null)
+		{
+			log = ((LoggerFactory) context.getService(ref)).getLogger(ExtenderTracker.class);
 
-			@Override
-			public void removedService(ServiceReference reference,
-					Object service) {
-				super.removedService(reference, service);
-
-				log = new StreamLog(System.out);
-			}
-		};
-
-		logTracker.open();
+		}
 	}
 
 	public Object addingBundle(Bundle bundle, BundleEvent event) {
@@ -83,9 +73,21 @@ public class ExtenderTracker extends BundleTracker {
 			while (lib.hasMoreTokens()) {
 				final String ns = lib.nextToken().trim();
                 if (log != null)
-					log.log(LogService.LOG_DEBUG, String.format(
+					log.debug(String.format(
 							"requiring %s from bundle %s", ns, bundle));
 				ClojureOSGi.require(bundle, ns);
+				try {
+					ClojureOSGi.withBundle(bundle, new RunnableWithException() {
+						@Override
+						public Object run() throws Exception {
+							final Var var = RT.var(ns, "bundle-start");
+							System.out.println(var);
+							return var;
+						}
+					});
+				}catch (Exception e) {
+
+				}
 			}
 		}
 	}
@@ -118,8 +120,7 @@ public class ExtenderTracker extends BundleTracker {
 					ClojureOSGi.withBundle(bundle, new RunnableWithException() {
 						public Object run() throws Exception {
 							if (log != null)
-								log.log(LogService.LOG_DEBUG,
-										String.format(
+								log.debug(String.format(
 												"invoking function %s/%s for bundle: %s",
 												ns, callbackFunction, bundle));
 
@@ -149,7 +150,6 @@ public class ExtenderTracker extends BundleTracker {
 	}
 
 	public void close() {
-		logTracker.close();
 		super.close();
 	}
 

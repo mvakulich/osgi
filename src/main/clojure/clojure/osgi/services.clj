@@ -66,9 +66,10 @@
 )
 
 (defn track-service [filter customizer]
+  (println "add tracking service with filter" (get-filter (get-filter filter)))
   (let
     [context (.getBundleContext *bundle*)
-     tracker (ServiceTracker. context (get-filter filter) customizer)]
+     tracker (ServiceTracker. context (get-filter (get-filter filter)) customizer)]
 
    	 (.open tracker)
 
